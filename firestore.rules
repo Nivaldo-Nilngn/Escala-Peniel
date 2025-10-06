@@ -1,0 +1,244 @@
+// firestore.rules
+// Regras de Segurança do Firestore para o Sistema de Escalas Peniel
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Função helper para verificar se o usuário está autenticado
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    // Função helper para obter dados do usuário
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    // Função helper para verificar se o usuário é pastor
+    function isPastor() {
+      return isSignedIn() && getUserData().role == 'pastor';
+    }
+    
+    // Função helper para verificar se o usuário é líder
+    function isLider() {
+      return isSignedIn() && getUserData().role == 'lider';
+    }
+    
+    // Função helper para verificar se o usuário é membro de um departamento
+    function isMemberOfDepartment(departmentId) {
+      return isSignedIn() && 
+             departmentId in getUserData().departmentIds;
+    }
+    
+    // Função helper para verificar se o usuário é líder de um departamento
+    function isLeaderOfDepartment(departmentId) {
+      return isSignedIn() && 
+             isLider() &&
+             get(/databases/$(database)/documents/departments/$(departmentId)).data.leaderId == request.auth.uid;
+    }
+
+    // USERS Collection
+    match /users/{userId} {
+      // Usuários podem ler seu próprio perfil
+      // Pastores e líderes podem ler todos os usuários
+      allow read: if isSignedIn() && 
+                     (request.auth.uid == userId || isPastor() || isLider());
+      
+      // Apenas o próprio usuário pode atualizar seu perfil (campos limitados)
+      allow update: if isSignedIn() && 
+                       request.auth.uid == userId &&
+                       // Impede alteração de role e isActive pelo próprio usuário
+                       request.resource.data.role == resource.data.role &&
+                       request.resource.data.isActive == resource.data.isActive;
+      
+      // Apenas pastores podem criar usuários ou desativar
+      allow create, delete: if isPastor();
+    }
+
+    // DEPARTMENTS Collection
+    match /departments/{departmentId} {
+      // Todos podem ler departamentos ativos
+      allow read: if isSignedIn();
+      
+      // Apenas pastores podem criar, editar ou deletar departamentos
+      allow create, update, delete: if isPastor();
+    }
+
+    // MONTHLY AGENDAS Collection
+    match /monthlyAgendas/{agendaId} {
+      // Todos podem ler agendas publicadas
+      allow read: if isSignedIn();
+      
+      // Apenas pastores podem criar, editar ou deletar agendas
+      allow create, update, delete: if isPastor();
+    }
+
+    // DEPARTMENT SCHEDULES Collection
+    match /departmentSchedules/{scheduleId} {
+      // Membros podem ler escalas do seu departamento
+      // Líderes e pastores podem ler todas as escalas
+      allow read: if isSignedIn() && 
+                     (isPastor() || 
+                      isLider() || 
+                      isMemberOfDepartment(resource.data.departmentId));
+      
+      // ✅ AJUSTADO: Membros do departamento podem criar escalas
+      // Líderes podem criar/editar escalas do seu departamento
+      // Pastores podem criar/editar qualquer escala
+      allow create, update: if isSignedIn() && 
+                               (isPastor() || 
+                                isLider() ||
+                                isMemberOfDepartment(request.resource.data.departmentId));
+      
+      // Apenas pastores podem deletar escalas
+      allow delete: if isPastor();
+    }
+
+    // SUBSTITUTION REQUESTS Collection
+    match /substitutionRequests/{requestId} {
+      // Membros podem ler seus próprios pedidos
+      // Líderes podem ler pedidos do seu departamento
+      // Pastores podem ler todos os pedidos
+      allow read: if isSignedIn() && 
+                     (request.auth.uid == resource.data.originalUserId ||
+                      isPastor() ||
+                      (isLider() && isLeaderOfDepartment(resource.data.departmentId)));
+      
+      // Membros podem criar pedidos de substituição para si mesmos
+      allow create: if isSignedIn() && 
+                       request.auth.uid == request.resource.data.originalUserId;
+      
+      // Líderes podem aprovar/rejeitar pedidos do seu departamento
+      // Pastores podem aprovar/rejeitar qualquer pedido
+      allow update: if isSignedIn() && 
+                       (isPastor() || 
+                        (isLider() && isLeaderOfDepartment(resource.data.departmentId)));
+      
+      // Apenas o criador ou pastor podem deletar
+      allow delete: if isSignedIn() && 
+                       (request.auth.uid == resource.data.originalUserId || isPastor());
+    }
+
+    // PASTOR MESSAGES Collection
+    match /pastorMessages/{messageId} {
+      // Todos os usuários autenticados podem ler mensagens direcionadas a eles
+      allow read: if isSignedIn() &&
+                     (resource.data.targetType == 'all' ||
+                      (resource.data.targetType == 'specific' && 
+                       request.auth.uid in resource.data.targetIds) ||
+                      (resource.data.targetType == 'department' && 
+                       exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                       getUserData().departmentIds.hasAny(resource.data.targetIds)));
+      
+      // Apenas pastores podem criar, editar ou deletar mensagens
+      allow create, update, delete: if isPastor();
+    }
+
+    // CHATS Collection
+    match /chats/{chatId} {
+      // Participantes podem ler o chat
+      allow read: if isSignedIn() && 
+                     (request.auth.uid in resource.data.participants || isPastor());
+      
+      // Apenas pastores e líderes podem criar chats
+      allow create: if isPastor() || isLider();
+      
+      // Apenas pastores podem editar ou deletar chats
+      allow update, delete: if isPastor();
+      
+      // CHAT MESSAGES Subcollection
+      match /messages/{messageId} {
+        // Participantes do chat podem ler mensagens
+        allow read: if isSignedIn() && 
+                       (request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants ||
+                        isPastor());
+        
+        // Participantes podem criar mensagens
+        allow create: if isSignedIn() && 
+                         request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants &&
+                         request.auth.uid == request.resource.data.senderId;
+        
+        // Apenas o autor pode editar ou deletar suas mensagens
+        allow update, delete: if isSignedIn() && 
+                                 request.auth.uid == resource.data.senderId;
+      }
+    }
+
+    // NOTIFICATIONS Collection
+    match /notifications/{notificationId} {
+      // Usuários podem ler apenas suas próprias notificações
+      allow read: if isSignedIn() && 
+                     request.auth.uid == resource.data.userId;
+      
+      // Sistema (Cloud Functions) ou pastores podem criar notificações
+      allow create: if isSignedIn();
+      
+      // Usuários podem marcar suas notificações como lidas
+      allow update: if isSignedIn() && 
+                       request.auth.uid == resource.data.userId &&
+                       request.resource.data.userId == resource.data.userId; // Impede alteração do userId
+      
+      // Usuários podem deletar suas próprias notificações
+      allow delete: if isSignedIn() && 
+                       request.auth.uid == resource.data.userId;
+    }
+
+    // FCM TOKENS Collection
+    match /fcmTokens/{tokenId} {
+      // Usuários podem ler seus próprios tokens
+      allow read: if isSignedIn() && 
+                     request.auth.uid == resource.data.userId;
+      
+      // Usuários podem criar/atualizar seus próprios tokens
+      allow create, update: if isSignedIn() && 
+                               request.auth.uid == request.resource.data.userId;
+      
+      // Usuários podem deletar seus próprios tokens
+      allow delete: if isSignedIn() && 
+                       request.auth.uid == resource.data.userId;
+    }
+
+    // SONGS Collection (para o departamento de Louvor)
+    match /songs/{songId} {
+      // Todos podem ler músicas
+      allow read: if isSignedIn();
+      
+      // Líderes de louvor e pastores podem criar/editar músicas
+      allow create, update: if isSignedIn() && 
+                               (isPastor() || 
+                                (isLider() && isMemberOfDepartment('louvor')));
+      
+      // Apenas pastores podem deletar músicas
+      allow delete: if isPastor();
+    }
+
+    // MUSICS Collection (Repertório de Músicas)
+    match /musics/{musicId} {
+      // Todos os membros autenticados podem ler músicas
+      allow read: if isSignedIn();
+      
+      // Membros do departamento, líderes e pastores podem criar músicas
+      allow create: if isSignedIn() && 
+                       (isPastor() || 
+                        isLider() ||
+                        isMemberOfDepartment(request.resource.data.departmentId));
+      
+      // Criador, líder do departamento ou pastor podem editar
+      allow update: if isSignedIn() && 
+                       (isPastor() || 
+                        request.auth.uid == resource.data.createdBy ||
+                        (isLider() && isMemberOfDepartment(resource.data.departmentId)));
+      
+      // Apenas pastor ou criador podem deletar
+      allow delete: if isSignedIn() && 
+                       (isPastor() || 
+                        request.auth.uid == resource.data.createdBy);
+    }
+
+    // Bloquear acesso a qualquer outra coleção não especificada
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
