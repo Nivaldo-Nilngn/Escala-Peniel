@@ -72,17 +72,57 @@ export const Login: React.FC = () => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        position: "relative",
+        overflow: "hidden",
+        //background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        
       }}
     >
+       {/* Vídeo de fundo */}
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          zIndex: -2,
+        }}
+      >
+        <source src="fundo.mp4" type="video/mp4" />
+      </video>
+
+       {/* Overlay escuro translúcido */}
+      <Box
+        sx={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          backgroundColor: "rgba(0, 0, 0, 0.24)", // ajuste a opacidade conforme desejar
+          zIndex: -2,
+        }}
+      />
+
       <Container maxWidth="sm">
-        <Card elevation={8}>
-          <CardContent sx={{ p: 4 }}>
+        
+        <Card elevation={8} sx={{ p: 4, bgcolor: "rgba(255, 255, 255, 0.068)",
+          borderRadius: 4,
+           }}
+          >
+
+          <CardContent sx={{ p: 1 }}>
             <Box sx={{ textAlign: 'center', mb: 4 }}>
-              <Typography variant="h4" component="h1" gutterBottom fontWeight="bold">
+              <Typography variant="h4" component="h1" gutterBottom fontWeight="bold" sx={{ color: 'white' }}>
                 Escala Peniel
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="text.secondary" sx={{ color: 'white' }}>
                 Sistema de Gestão de Escalas da Igreja
               </Typography>
             </Box>
@@ -94,7 +134,7 @@ export const Login: React.FC = () => {
             )}
 
             <form onSubmit={handleSubmit}>
-              <TextField
+              <TextField 
                 fullWidth
                 label="Email"
                 type="email"
@@ -104,6 +144,34 @@ export const Login: React.FC = () => {
                 required
                 autoFocus
                 disabled={loading}
+                sx={{
+      '& .MuiOutlinedInput-root': {
+        borderRadius: '25px',
+        backgroundColor: 'rgba(255, 255, 255, 0.1)', // leve transparência
+      color: 'white', // texto digitado branco
+      '& input': {
+        color: 'white', // texto principal
+      },
+      '& fieldset': {
+        borderColor: 'rgba(255, 255, 255, 0.3)',
+      },
+      '&:hover fieldset': {
+        borderColor: '#1976d2', // azul no hover
+      },
+      '&.Mui-focused fieldset': {
+        borderColor: '#1976d2',
+        boxShadow: '0 0 5px rgba(25, 118, 210, 0.6)',
+      },
+    },
+    '& .MuiInputLabel-root': {
+      color: 'rgba(255,255,255,0.7)',
+    },
+    '& .MuiInputLabel-root.Mui-focused': {
+      color: '#1976d2',
+    
+        
+      },
+    }}
               />
 
               <TextField
@@ -127,6 +195,34 @@ export const Login: React.FC = () => {
                     </InputAdornment>
                   ),
                 }}
+                sx={{
+      '& .MuiOutlinedInput-root': {
+        borderRadius: '25px',
+        backgroundColor: 'rgba(255, 255, 255, 0.1)', // leve transparência
+      color: 'white', // texto digitado branco
+      '& input': {
+        color: 'white', // texto principal
+      },
+      '& fieldset': {
+        borderColor: 'rgba(255, 255, 255, 0.3)',
+      },
+      '&:hover fieldset': {
+        borderColor: '#1976d2', // azul no hover
+      },
+      '&.Mui-focused fieldset': {
+        borderColor: '#1976d2',
+        boxShadow: '0 0 5px rgba(25, 118, 210, 0.6)',
+      },
+    },
+    '& .MuiInputLabel-root': {
+      color: 'rgba(255,255,255,0.7)',
+    },
+    '& .MuiInputLabel-root.Mui-focused': {
+      color: '#1976d2',
+    
+        
+      },
+    }}
               />
 
               <Button
@@ -136,20 +232,20 @@ export const Login: React.FC = () => {
                 size="large"
                 disabled={loading}
                 startIcon={loading ? <CircularProgress size={20} /> : <LoginIcon />}
-                sx={{ mt: 3, mb: 2 }}
+                sx={{ mt: 3, mb: 2, borderRadius: '25px' }}
               >
                 {loading ? 'Entrando...' : 'Entrar'}
               </Button>
             </form>
 
             <Box sx={{ mt: 3, textAlign: 'center' }}>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="text.secondary" sx={{ color: 'white' }}>
                 Esqueceu sua senha?{' '}
                 <Button size="small" disabled={loading}>
                   Recuperar
                 </Button>
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1,color: 'white' }}>
                 Não tem uma conta?{' '}
                 <Button 
                   size="small" 
@@ -161,17 +257,7 @@ export const Login: React.FC = () => {
               </Typography>
             </Box>
 
-            <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
-              <Typography variant="caption" color="text.secondary" display="block">
-                <strong>Para testar:</strong>
-              </Typography>
-              <Typography variant="caption" color="text.secondary" display="block">
-                1. Crie um usuário no Firebase Console
-              </Typography>
-              <Typography variant="caption" color="text.secondary" display="block">
-                2. Ou use: teste@peniel.com / senha123
-              </Typography>
-            </Box>
+            
           </CardContent>
         </Card>
       </Container>
