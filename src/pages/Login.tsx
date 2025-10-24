@@ -163,9 +163,7 @@ export const Login: React.FC = () => {
         boxShadow: '0 0 5px rgba(25, 118, 210, 0.6)',
       },
     },
-    '& .MuiInputLabel-root': {
-      color: 'rgba(255,255,255,0.7)',
-    },
+    
     '& .MuiInputLabel-root.Mui-focused': {
       color: '#1976d2',
     
